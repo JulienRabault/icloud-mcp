@@ -9,23 +9,52 @@ networking or MIME parsing.
 
 ## Tools
 
+**Read** — none of these modify anything (`SELECT ... readonly`, `BODY.PEEK`), so
+nothing gets marked as read, moved or deleted.
+
 | Tool | What it does |
 |---|---|
 | `list_folders` | List IMAP folders, optionally with message and unread counts |
 | `folder_status` | Counts for one folder without listing its messages |
-| `search_emails` | Search by text, sender, recipient, subject, date, flags, size |
+| `search_emails` | Search one folder by text, sender, recipient, subject, date, flags, size |
+| `search_all_folders` | Same search across every folder at once |
 | `read_email` | Full message: decoded text body, optional HTML, attachment metadata |
-| `get_thread` | Rebuild a conversation from any message in it |
-| `send_email` | Send a message over SMTP |
-| `move_emails` | Move messages between folders (dry run by default) |
+| `get_thread` | Rebuild a conversation, optionally with each message body |
+| `save_attachments` | Download attachments to disk and return their paths |
 
-**Read tools never modify anything.** They use `SELECT ... readonly` and
-`BODY.PEEK`, so nothing is marked as read, moved or deleted.
+**Write** — explicit by design.
 
-**Write tools are explicit.** `send_email` really sends — there is no draft step.
-`move_emails` simulates by default and only acts when `dry_run=false`. Neither
-should be called without the user approving the exact content or the exact list
-of messages first.
+| Tool | What it does |
+|---|---|
+| `save_draft` | Put a message in Drafts. Nothing is sent |
+| `set_flag` | Mark read/unread, flagged, answered. Reversible |
+| `move_emails` | Move between folders. Simulates unless `dry_run=false` |
+| `send_email` | Actually sends. No draft step, no undo |
+
+There is no delete tool, by design.
+
+`search_all_folders` is the one to reach for when asking *did someone reply?* —
+replies are routinely filed into a topic folder by a mail rule, and an
+`INBOX`-only search silently misses them.
+
+Attachment content never goes through the model: `save_attachments` writes files
+to disk and returns paths. Filenames coming from email are sanitised — they're
+hostile input, not trusted paths.
+
+## Resources
+
+| URI | Content |
+|---|---|
+| `icloud://folders` | Every folder with its message and unread counts |
+| `icloud://unread` | Unread messages in the inbox |
+
+## Prompts
+
+| Prompt | Purpose |
+|---|---|
+| `triage_inbox` | Sort recent mail into action required / info / waiting / ignorable |
+| `draft_reply` | Read a message and its thread, then draft a reply into Drafts |
+| `follow_up` | Reconstruct an exchange with one contact and say who owes whom a reply |
 
 ## Install
 
@@ -138,10 +167,13 @@ src/icloud_mcp/
   models.py       frozen Pydantic models
   mime.py         header, body and attachment decoding
   imap_client.py  connection, LIST, STATUS, SELECT, FETCH
-  search.py       SEARCH criteria and threading
+  search.py       SEARCH criteria, threading, multi-folder search
   smtp_client.py  MIME building, SMTP send, best-effort copy to Sent
+  attachments.py  attachment extraction and filename sanitising
+  drafts.py       APPEND to the Drafts folder
+  flags.py        \Seen, \Flagged, \Answered
   move.py         COPY + EXPUNGE with the anti-purge guard
-  server.py       the seven FastMCP tools
+  server.py       tools, resources and prompts
   cli.py          terminal checks
 ```
 
@@ -151,7 +183,7 @@ src/icloud_mcp/
 uv run pytest -q
 ```
 
-32 offline tests — no network, no credentials required.
+44 offline tests — no network, no credentials required.
 
 ## License
 

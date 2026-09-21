@@ -8,11 +8,13 @@ un acte explicite, jamais une action de fond.
 from __future__ import annotations
 
 import imaplib
+import mimetypes
 import smtplib
 import ssl
 from collections.abc import Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from email.message import EmailMessage as StdEmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 from typing import Iterator
@@ -33,7 +35,27 @@ class SendResult:
     saved_to_sent: bool
 
 
-def _build_message(
+MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+
+
+def _attach(message: StdEmailMessage, path: Path) -> None:
+    """Joint un fichier local au message."""
+    if not path.is_file():
+        raise ValueError(f"Piece jointe introuvable : {path}")
+    payload = path.read_bytes()
+    if len(payload) > MAX_ATTACHMENT_BYTES:
+        raise ValueError(
+            f"{path.name} fait {len(payload) // 1024 // 1024} Mo, au-dela de la "
+            f"limite de {MAX_ATTACHMENT_BYTES // 1024 // 1024} Mo."
+        )
+    guessed, _ = mimetypes.guess_type(path.name)
+    maintype, _, subtype = (guessed or "application/octet-stream").partition("/")
+    message.add_attachment(
+        payload, maintype=maintype, subtype=subtype, filename=path.name
+    )
+
+
+def build_message(
     settings: Settings,
     *,
     to: Sequence[str],
@@ -42,6 +64,7 @@ def _build_message(
     cc: Sequence[str] = (),
     in_reply_to: str | None = None,
     references: str | None = None,
+    attachments: Sequence[Path] = (),
 ) -> StdEmailMessage:
     message = StdEmailMessage()
     message["From"] = formataddr((settings.sender_name, settings.email))
@@ -58,6 +81,8 @@ def _build_message(
     elif in_reply_to:
         message["References"] = in_reply_to
     message.set_content(body_text)
+    for path in attachments:
+        _attach(message, Path(path))
     return message
 
 
@@ -111,11 +136,12 @@ def send_email(
     cc: Sequence[str] = (),
     in_reply_to: str | None = None,
     references: str | None = None,
+    attachments: Sequence[Path] = (),
 ) -> SendResult:
     """Envoie un email via SMTP iCloud et tente d'en garder une copie dans Sent."""
     if not to:
         raise ValueError("'to' ne peut pas etre vide.")
-    message = _build_message(
+    message = build_message(
         settings,
         to=to,
         subject=subject,
@@ -123,6 +149,7 @@ def send_email(
         cc=cc,
         in_reply_to=in_reply_to,
         references=references,
+        attachments=attachments,
     )
     recipients = [*to, *cc]
     raw = message.as_bytes()
@@ -140,3 +167,6 @@ def send_email(
         cc=tuple(cc),
         saved_to_sent=saved,
     )
+
+
+_build_message = build_message

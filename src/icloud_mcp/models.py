@@ -134,3 +134,70 @@ class ThreadResult(BaseModel):
     matched_by: str = Field(description="'references' ou 'subject' selon la methode utilisee")
     returned: int
     messages: tuple[EmailSummary, ...] = ()
+
+
+class SavedFile(BaseModel):
+    """Une piece jointe ecrite sur disque."""
+
+    model_config = ConfigDict(frozen=True)
+
+    filename: str
+    content_type: str
+    size_bytes: int
+    path: str = Field(description="Chemin local du fichier ecrit")
+
+
+class AttachmentResult(BaseModel):
+    """Reponse de save_attachments."""
+
+    model_config = ConfigDict(frozen=True)
+
+    uid: str
+    folder: str
+    saved: tuple[SavedFile, ...] = ()
+    count: int = 0
+
+
+class FlagResult(BaseModel):
+    """Reponse de set_flag."""
+
+    model_config = ConfigDict(frozen=True)
+
+    folder: str
+    uids: tuple[str, ...]
+    flag: str
+    added: bool = Field(description="Vrai si le drapeau a ete ajoute, faux s'il a ete retire")
+
+
+class DraftReceipt(BaseModel):
+    """Reponse de save_draft."""
+
+    model_config = ConfigDict(frozen=True)
+
+    folder: str
+    message_id: str
+    to: tuple[str, ...]
+    subject: str
+    sent: bool = Field(default=False, description="Toujours faux : un brouillon ne part pas")
+
+
+class MultiSearchResult(BaseModel):
+    """Reponse de search_all_folders."""
+
+    model_config = ConfigDict(frozen=True)
+
+    folders_searched: int
+    totals_by_folder: dict[str, int] = Field(
+        default_factory=dict, description="Nombre de correspondances par dossier"
+    )
+    returned: int
+    filtered_client_side: bool = False
+    messages: tuple[EmailSummary, ...] = ()
+
+
+class ThreadMessage(EmailSummary):
+    """Message d'un fil, avec son corps quand il a ete demande."""
+
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
+
+    body_text: str = ""

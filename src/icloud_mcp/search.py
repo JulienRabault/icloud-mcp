@@ -200,3 +200,46 @@ def thread(
     uids = _parse_uids(data)
     found = fetch_summaries(conn, folder, uids[-limit:])
     return (tuple(sorted(found, key=sort_key)), root, "subject")
+
+
+def search_everywhere(
+    conn: imaplib.IMAP4_SSL,
+    criteria: SearchCriteria,
+    limit: int,
+    scan_limit: int,
+    *,
+    folders: Sequence[str] | None = None,
+) -> tuple[tuple[EmailSummary, ...], dict[str, int], bool]:
+    """Cherche dans plusieurs dossiers d'un coup.
+
+    Repond au piege le plus courant : une reponse attendue est souvent classee
+    par une regle de tri dans un dossier thematique, et une recherche limitee a
+    INBOX la manque completement.
+
+    Retourne (messages fusionnes et tries, total par dossier, repli_client).
+    """
+    from .imap_client import list_folders
+
+    if folders is None:
+        folders = [
+            folder.name
+            for folder in list_folders(conn)
+            if "\\Noselect" not in folder.flags
+        ]
+
+    merged: list[EmailSummary] = []
+    totals: dict[str, int] = {}
+    client_side = False
+
+    for name in folders:
+        try:
+            found, total, fallback = search(conn, name, criteria, limit, scan_limit)
+        except (ImapError, imaplib.IMAP4.error):
+            continue  # un dossier illisible ne doit pas casser toute la recherche
+        if total:
+            totals[name] = total
+        merged.extend(found)
+        client_side = client_side or fallback
+
+    ordered = tuple(sorted(merged, key=sort_key, reverse=True))
+    return (ordered[:limit], totals, client_side)

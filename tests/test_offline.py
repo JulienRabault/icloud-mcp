@@ -149,14 +149,17 @@ async def test_every_tool_is_registered() -> None:
         "list_folders",
         "folder_status",
         "search_emails",
+        "search_all_folders",
         "read_email",
         "get_thread",
+        "save_attachments",
         "send_email",
+        "save_draft",
+        "set_flag",
         "move_emails",
     }
-    # Deux outils d'ecriture seulement, deliberes et documentes comme tels.
-    # Aucun outil de suppression ne doit exister.
-    forbidden = ("delete", "purge", "expunge", "mark_read", "mark_unread")
+    # Aucun outil de suppression ne doit exister : rien ne detruit de courrier.
+    forbidden = ("delete", "purge", "expunge")
     assert not [t.name for t in tools if any(word in t.name for word in forbidden)]
 
     by_name = {tool.name: tool for tool in tools}
@@ -164,6 +167,27 @@ async def test_every_tool_is_registered() -> None:
     # move_emails doit simuler par defaut.
     move_schema = by_name["move_emails"].parameters
     assert move_schema["properties"]["dry_run"]["default"] is True
+
+
+@pytest.mark.anyio
+async def test_resources_and_prompts_are_registered() -> None:
+    from icloud_mcp.server import mcp
+
+    resources = await mcp.list_resources()
+    assert {str(item.uri) for item in resources} == {"icloud://folders", "icloud://unread"}
+
+    prompts = await mcp.list_prompts()
+    assert {item.name for item in prompts} == {"triage_inbox", "draft_reply", "follow_up"}
+
+
+def test_draft_prompt_forbids_sending() -> None:
+    """Le prompt de brouillon ne doit jamais orienter vers un envoi direct."""
+    from icloud_mcp.server import draft_reply_text
+
+    text = draft_reply_text(uid="42", folder="INBOX", intent="refuser poliment")
+    assert "save_draft" in text
+    assert "N'utilise pas send_email" in text
+    assert "refuser poliment" in text
 
 
 @pytest.fixture
@@ -252,3 +276,64 @@ def test_move_rejects_identical_folders() -> None:
 
     with pytest.raises(ValueError, match="identiques"):
         move_emails(None, ["1"], "INBOX", "INBOX")
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("facture.pdf", "facture.pdf"),
+        ("../../etc/passwd", "etc_passwd"),
+        ("C:\Windows\system32.dll", "C_Windows_system32.dll"),
+        ("reçu été.pdf", "recu_ete.pdf"),
+        ("", "secours"),
+        ("...", "secours"),
+    ],
+)
+def test_attachment_filenames_are_sanitised(raw: str, expected: str) -> None:
+    """Un nom de piece jointe est une donnee hostile, pas un chemin de confiance."""
+    from icloud_mcp.attachments import safe_filename
+
+    assert safe_filename(raw, "secours") == expected
+
+
+def test_flag_rejects_unknown_name() -> None:
+    from icloud_mcp.flags import set_flag
+
+    with pytest.raises(ValueError, match="Drapeau inconnu"):
+        set_flag(None, "INBOX", ["1"], "important", add=True)
+
+
+def test_flag_rejects_empty_uids() -> None:
+    from icloud_mcp.flags import set_flag
+
+    with pytest.raises(ValueError, match="Aucun UID"):
+        set_flag(None, "INBOX", [], "seen", add=True)
+
+
+def test_message_with_attachment_is_built(tmp_path) -> None:
+    from icloud_mcp.smtp_client import build_message
+
+    joined = tmp_path / "note.txt"
+    joined.write_text("contenu", encoding="utf-8")
+    message = build_message(
+        _settings(),
+        to=["dest@example.com"],
+        subject="Avec piece jointe",
+        body_text="Voir ci-joint.",
+        attachments=[joined],
+    )
+    names = [part.get_filename() for part in message.walk() if part.get_filename()]
+    assert names == ["note.txt"]
+
+
+def test_attachment_must_exist(tmp_path) -> None:
+    from icloud_mcp.smtp_client import build_message
+
+    with pytest.raises(ValueError, match="introuvable"):
+        build_message(
+            _settings(),
+            to=["dest@example.com"],
+            subject="x",
+            body_text="y",
+            attachments=[tmp_path / "absent.pdf"],
+        )
