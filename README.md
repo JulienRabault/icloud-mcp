@@ -7,9 +7,8 @@
 A Model Context Protocol (MCP) server for **iCloud Mail**. Lets an LLM read,
 search, file and send your Apple mail over IMAP and SMTP.
 
-Most mail MCP servers target Gmail. This one speaks IMAP directly to
-`imap.mail.me.com`, using only the Python standard library for networking and
-MIME parsing.
+Runs entirely on your machine: your credentials and your mail never reach a
+third party. Networking and MIME parsing use only the Python standard library.
 
 ### Key Features
 
