@@ -32,6 +32,8 @@ il est juste signalé via `saved_to_sent: false` dans la réponse.
 ## Installation
 
 ```bash
+git clone https://github.com/JulienRabault/icloud-mcp.git
+cd icloud-mcp
 uv sync
 ```
 
@@ -64,19 +66,43 @@ uv run python -m icloud_mcp.cli read 31407
 uv run python -m icloud_mcp.cli thread 31404
 ```
 
-## Brancher sur Claude
+## Brancher sur un client
 
-Bloc déjà présent dans `%APPDATA%\Claude\claude_desktop_config.json` :
+Remplacer `/chemin/vers/icloud-mcp` par le dossier du dépôt cloné.
+
+### Claude Code
+
+```bash
+claude mcp add icloud-mail --scope user -- uv run --directory /chemin/vers/icloud-mcp python -m icloud_mcp
+```
+
+Vérifier avec `claude mcp list`. Sous Windows, si `uv` n'est pas trouvé, mettre
+son chemin absolu (`C:\Users\<toi>\.local\bin\uv.exe`).
+
+### Codex
+
+Dans `~/.codex/config.toml` :
+
+```toml
+[mcp_servers.icloud-mail]
+command = "uv"
+args = ["run", "--directory", "/chemin/vers/icloud-mcp", "python", "-m", "icloud_mcp"]
+```
+
+### Claude Desktop
+
+Dans `claude_desktop_config.json` — `%APPDATA%\Claude\` sous Windows,
+`~/Library/Application Support/Claude/` sous macOS :
 
 ```json
 {
   "mcpServers": {
     "icloud-mail": {
-      "command": "C:\\chemin\\vers\\uv.exe",
+      "command": "uv",
       "args": [
         "run",
         "--directory",
-        "C:\\chemin\\vers\\icloud-mcp",
+        "/chemin/vers/icloud-mcp",
         "python",
         "-m",
         "icloud_mcp"
@@ -86,9 +112,25 @@ Bloc déjà présent dans `%APPDATA%\Claude\claude_desktop_config.json` :
 }
 ```
 
-Le chemin absolu vers `uv.exe` est volontaire : Claude Desktop ne démarre pas
-forcément avec le `PATH` du shell. Redémarrer Claude après modification, les
-serveurs MCP n'étant chargés qu'au démarrage.
+Sous Windows, mettre le chemin absolu vers `uv.exe` plutôt que `uv` : Claude
+Desktop ne démarre pas forcément avec le `PATH` du shell.
+
+### Dans tous les cas
+
+Les serveurs MCP ne sont chargés qu'au démarrage du client — **redémarrer après
+toute modification de configuration**, y compris après avoir ajouté un outil au
+serveur.
+
+## Skill fourni
+
+`skills/mailbox-search/` contient un skill Claude Code qui impose de balayer
+tous les dossiers IMAP — et pas seulement `INBOX` — avant de conclure qu'un
+message n'existe pas. Les réponses attendues sont souvent classées par une règle
+de tri dans un dossier thématique, et une recherche limitée à `INBOX` les manque.
+
+```bash
+cp -r skills/mailbox-search ~/.claude/skills/
+```
 
 ## Détails d'implémentation
 
