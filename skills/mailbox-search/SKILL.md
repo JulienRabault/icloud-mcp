@@ -33,7 +33,7 @@ projet, classées par une règle.
 
 Appeler `list_folders` **avant** toute recherche. Ne jamais supposer la
 structure. Repérer en particulier les dossiers thématiques créés par
-l'utilisateur (« Expa canada », « Recherche emploi », « Appart »…) : ce sont eux
+l'utilisateur (un dossier par projet, par client, par sujet) : ce sont eux
 qui captent les fils suivis.
 
 ### 2. Balayer tous les dossiers sélectionnables
@@ -69,7 +69,7 @@ essayer : une autre orthographe, le nom de domaine de l'expéditeur plutôt que 
 nom de la personne, un mot du sujet plutôt que du corps, et une recherche sans
 filtre de date.
 
-**Chercher par domaine, pas par nom.** `sender: "gamastudy.com"` est plus fiable
+**Chercher par domaine, pas par nom.** `sender: "exemple.com"` est plus fiable
 que `sender: "Guillaume"`. Les prénoms sont ambigus — deux interlocuteurs
 différents peuvent porter le même.
 

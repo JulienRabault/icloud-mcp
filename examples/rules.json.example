@@ -1,0 +1,14 @@
+[
+  {
+    "sender": "newsletter@example.com",
+    "folder": "Newsletters"
+  },
+  {
+    "subject": "invoice",
+    "folder": "Archive"
+  },
+  {
+    "sender": "notifications@example.org",
+    "folder": "Archive"
+  }
+]
