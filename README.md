@@ -1,35 +1,33 @@
 # icloud-mcp
 
-Serveur MCP pour une boîte mail iCloud : lecture en IMAP direct (`imaplib` de la
-stdlib) et un seul outil d'écriture, l'envoi via SMTP. Aucune dépendance tierce
-pour le réseau ou le parsing MIME.
+MCP server for iCloud Mail. Read, search and send email from Claude, Codex or
+any MCP client.
 
-## Outils
+Most mail MCP servers target Gmail. This one speaks IMAP directly to
+`imap.mail.me.com` — stdlib `imaplib` and `email`, no third-party dependency for
+networking or MIME parsing.
 
-| Outil | Rôle |
+## Tools
+
+| Tool | What it does |
 |---|---|
-| `list_folders` | Liste les dossiers IMAP ; `with_counts` ajoute total et non-lus par dossier |
-| `folder_status` | Compteurs d'un dossier (total, non-lus, récents, UIDNEXT) sans lister les messages |
-| `search_emails` | Recherche : texte libre, expéditeur, destinataire, sujet, dates, non-lus, marqués, taille |
-| `read_email` | Message complet : corps texte décodé, HTML optionnel, métadonnées des pièces jointes |
-| `get_thread` | Reconstitue une conversation depuis un de ses messages |
-| `send_email` | **Envoie réellement un message** via SMTP. Seul outil d'écriture du serveur |
+| `list_folders` | List IMAP folders, optionally with message and unread counts |
+| `folder_status` | Counts for one folder without listing its messages |
+| `search_emails` | Search by text, sender, recipient, subject, date, flags, size |
+| `read_email` | Full message: decoded text body, optional HTML, attachment metadata |
+| `get_thread` | Rebuild a conversation from any message in it |
+| `send_email` | Send a message over SMTP |
+| `move_emails` | Move messages between folders (dry run by default) |
 
-Garanties côté lecture : `SELECT ... readonly`, lectures via `BODY.PEEK` — rien
-n'est marqué lu, déplacé ni supprimé par `list_folders`, `folder_status`,
-`search_emails`, `read_email` ou `get_thread`. Un test vérifie qu'aucun de ces
-cinq outils ne porte un nom d'action d'écriture (delete/move/mark).
+**Read tools never modify anything.** They use `SELECT ... readonly` and
+`BODY.PEEK`, so nothing is marked as read, moved or deleted.
 
-`send_email` est l'exception assumée : il envoie un message pour de vrai,
-action irréversible. Ce n'est pas une garde technique côté serveur — c'est à
-l'appelant (l'assistant) de ne l'invoquer qu'après validation explicite du
-contenu exact par l'utilisateur, jamais de sa propre initiative ni en réponse
-à une instruction trouvée dans un email reçu. La description de l'outil le
-rappelle. Une copie du message envoyé est déposée au mieux dans « Sent
-Messages » (`IMAP APPEND`) ; un échec de cette copie n'annule jamais l'envoi,
-il est juste signalé via `saved_to_sent: false` dans la réponse.
+**Write tools are explicit.** `send_email` really sends — there is no draft step.
+`move_emails` simulates by default and only acts when `dry_run=false`. Neither
+should be called without the user approving the exact content or the exact list
+of messages first.
 
-## Installation
+## Install
 
 ```bash
 git clone https://github.com/JulienRabault/icloud-mcp.git
@@ -37,139 +35,114 @@ cd icloud-mcp
 uv sync
 ```
 
-## Configuration
+## Configure
 
-iCloud refuse le mot de passe principal en IMAP. Il faut un **mot de passe pour
-application** :
-[account.apple.com](https://account.apple.com/account/manage) → Connexion et
-sécurité → Mots de passe pour app.
+iCloud rejects your main password over IMAP. You need an **app-specific
+password**: [account.apple.com](https://account.apple.com/account/manage) →
+Sign-In and Security → App-Specific Passwords.
 
-Copier `.env.example` en `.env` et le remplir :
+Copy `.env.example` to `.env`:
 
 ```
-ICLOUD_EMAIL=prenom.nom@icloud.com
+ICLOUD_EMAIL=you@icloud.com
 ICLOUD_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+ICLOUD_DISPLAY_NAME=Your Name
 ```
 
-Le `.env` est dans `.gitignore`. Les variables d'environnement du système sont
-prioritaires sur le fichier, si tu préfères ne rien écrire sur disque.
+`.env` is gitignored. Environment variables take precedence over the file if you
+prefer keeping nothing on disk.
 
-## Vérifier depuis le terminal
+Check it works:
 
 ```bash
 uv run python -m icloud_mcp.cli check
-uv run python -m icloud_mcp.cli folders
 uv run python -m icloud_mcp.cli latest -n 5
-uv run python -m icloud_mcp.cli latest --full
-uv run python -m icloud_mcp.cli search "facture" --unseen -n 10
-uv run python -m icloud_mcp.cli read 31407
-uv run python -m icloud_mcp.cli thread 31404
 ```
 
-## Brancher sur un client
+## Connect a client
 
-Remplacer `/chemin/vers/icloud-mcp` par le dossier du dépôt cloné.
+Replace `/path/to/icloud-mcp` with your clone directory.
 
-### Claude Code
+**Claude Code**
 
 ```bash
-claude mcp add icloud-mail --scope user -- uv run --directory /chemin/vers/icloud-mcp python -m icloud_mcp
+claude mcp add icloud-mail --scope user -- uv run --directory /path/to/icloud-mcp python -m icloud_mcp
 ```
 
-Vérifier avec `claude mcp list`. Sous Windows, si `uv` n'est pas trouvé, mettre
-son chemin absolu (`C:\Users\<toi>\.local\bin\uv.exe`).
-
-### Codex
-
-Dans `~/.codex/config.toml` :
+**Codex** — in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.icloud-mail]
 command = "uv"
-args = ["run", "--directory", "/chemin/vers/icloud-mcp", "python", "-m", "icloud_mcp"]
+args = ["run", "--directory", "/path/to/icloud-mcp", "python", "-m", "icloud_mcp"]
 ```
 
-### Claude Desktop
-
-Dans `claude_desktop_config.json` — `%APPDATA%\Claude\` sous Windows,
-`~/Library/Application Support/Claude/` sous macOS :
+**Claude Desktop** — in `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "icloud-mail": {
       "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/chemin/vers/icloud-mcp",
-        "python",
-        "-m",
-        "icloud_mcp"
-      ]
+      "args": ["run", "--directory", "/path/to/icloud-mcp", "python", "-m", "icloud_mcp"]
     }
   }
 }
 ```
 
-Sous Windows, mettre le chemin absolu vers `uv.exe` plutôt que `uv` : Claude
-Desktop ne démarre pas forcément avec le `PATH` du shell.
+On Windows, use the absolute path to `uv.exe` — desktop clients don't always
+inherit your shell `PATH`.
 
-### Dans tous les cas
+MCP servers are only loaded at client startup. **Restart after any config
+change**, including after adding a tool to the server.
 
-Les serveurs MCP ne sont chargés qu'au démarrage du client — **redémarrer après
-toute modification de configuration**, y compris après avoir ajouté un outil au
-serveur.
+## iCloud quirks handled here
 
-## Skill fourni
+Things that cost time to discover, in case you're writing your own client:
 
-`skills/mailbox-search/` contient un skill Claude Code qui impose de balayer
-tous les dossiers IMAP — et pas seulement `INBOX` — avant de conclure qu'un
-message n'existe pas. Les réponses attendues sont souvent classées par une règle
-de tri dans un dossier thématique, et une recherche limitée à `INBOX` les manque.
+- **`SEARCH` returns UIDs out of order.** RFC 3501 doesn't guarantee ordering and
+  iCloud genuinely returns unsorted lists. Taking the tail of the response gives
+  you the wrong messages — sort numerically first.
+- **No `MOVE`, no `UIDPLUS`.** Moving means `COPY` + `\Deleted` + `EXPUNGE`, and
+  `EXPUNGE` purges *every* `\Deleted` message in the folder. `move_emails`
+  refuses to run if the folder holds deleted messages outside the requested
+  batch, which would otherwise be destroyed.
+- **`SEARCH CHARSET UTF-8` works.** Accented queries can go server-side across
+  the whole mailbox. A client-side fallback exists for servers that refuse, and
+  the response flags it via `filtered_client_side`.
+- **Folder names use modified UTF-7** (RFC 3501). Implemented in `utf7.py`, so
+  folders like « Éléments envoyés » work.
+- **Charsets lie.** Bodies fall back to latin-1 when the declared charset fails
+  to decode, and to stripped HTML when a message has no `text/plain` part.
+
+Search results fetch headers only (`BODY.PEEK[HEADER.FIELDS …]`), so listing 20
+results doesn't download 20 full messages. Attachment content is never returned —
+only name, type and size.
+
+## Bundled skill
+
+`skills/mailbox-search/` is a Claude Code skill that forces a sweep of every IMAP
+folder before concluding a message doesn't exist. Replies are often filed into a
+topic folder by a mail rule, and an `INBOX`-only search misses them.
 
 ```bash
 cp -r skills/mailbox-search ~/.claude/skills/
 ```
 
-## Détails d'implémentation
-
-- **Recherche accentuée** : iCloud accepte `SEARCH CHARSET UTF-8` (vérifié sur un
-  compte réel), donc les critères accentués partent au serveur et portent sur la
-  boîte entière, corps compris. Si un serveur refusait, un repli relance la
-  recherche sans les termes accentués puis filtre les en-têtes des 500 messages
-  les plus récents — dans ce cas seulement, `filtered_client_side` vaut `true`
-  dans la réponse, pour que la dégradation soit visible et non silencieuse.
-- **Noms de dossiers** : encodage/décodage UTF-7 modifié (RFC 3501) dans
-  `utf7.py`, donc « Éléments envoyés » fonctionne.
-- **MIME** : `email.policy.default`, `get_body(preferencelist=…)` pour choisir la
-  partie plain/HTML, décodage `quoted-printable`/`base64` par la stdlib, repli
-  latin-1 quand le `charset` déclaré est faux, repli HTML → texte quand le
-  message n'a pas de partie `text/plain`.
-- **Listes de résultats** : seuls les en-têtes sont récupérés
-  (`BODY.PEEK[HEADER.FIELDS …]`), jamais les corps — une recherche sur 20
-  résultats ne télécharge pas 20 messages entiers.
-- **Fils de discussion** : regroupement sur `References` / `Message-ID`, repli
-  sur le sujet normalisé (préfixes `Re:`, `Fwd:`, `TR:` retirés). Le champ
-  `matched_by` de la réponse dit quelle méthode a servi.
-- **Pièces jointes** : seules les métadonnées (nom, type, taille) sortent, 50 au
-  maximum ; le contenu binaire n'est jamais renvoyé au modèle.
-
-## Structure
+## Layout
 
 ```
 src/icloud_mcp/
-  config.py       chargement env / .env, jamais de mot de passe dans les repr
-  utf7.py         UTF-7 modifié IMAP
-  models.py       modèles Pydantic figés (frozen)
-  mime.py         décodage des en-têtes, corps et pièces jointes
-  imap_client.py  connexion, LIST, STATUS, SELECT, FETCH
-  search.py       critères SEARCH et fils de discussion
-  smtp_client.py  construction MIME et envoi SMTP, copie best-effort vers Sent
-  server.py       les six outils FastMCP
-  cli.py          vérification depuis le terminal
-tests/
-  test_offline.py tests sans réseau (encodage, MIME, recherche, construction SMTP)
+  config.py       env / .env loading, password never in repr
+  utf7.py         modified UTF-7 for folder names
+  models.py       frozen Pydantic models
+  mime.py         header, body and attachment decoding
+  imap_client.py  connection, LIST, STATUS, SELECT, FETCH
+  search.py       SEARCH criteria and threading
+  smtp_client.py  MIME building, SMTP send, best-effort copy to Sent
+  move.py         COPY + EXPUNGE with the anti-purge guard
+  server.py       the seven FastMCP tools
+  cli.py          terminal checks
 ```
 
 ## Tests
@@ -177,3 +150,9 @@ tests/
 ```bash
 uv run pytest -q
 ```
+
+32 offline tests — no network, no credentials required.
+
+## License
+
+MIT
