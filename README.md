@@ -30,6 +30,15 @@ third party. Networking and MIME parsing use only the Python standard library.
 
 ### Getting started
 
+Once published to PyPI, no clone is needed:
+
+```bash
+uvx icloud-mcp-setup     # interactive configuration
+uvx icloud-mcp           # run the server
+```
+
+From source:
+
 ```bash
 git clone https://github.com/JulienRabault/icloud-mcp.git
 cd icloud-mcp
@@ -122,8 +131,15 @@ Write — explicit by design:
 |---|---|
 | `save_draft` | Put a message in Drafts. Nothing is sent |
 | `set_flag` | Read/unread, flagged, answered. Reversible |
+| `create_mailbox` | Create a folder, accented names included |
+| `rename_mailbox` | Rename a folder, messages follow |
+| `delete_mailbox` | Delete an **empty** folder. Refuses while it holds mail |
+| `auto_organize` | File messages by rules. Simulates unless `dry_run=false` |
 | `move_emails` | Move between folders. Simulates unless `dry_run=false` |
 | `send_email` | Actually sends. No draft step, no undo |
+
+No tool destroys mail. `delete_mailbox` refuses a folder that still holds
+messages — move them out first, which keeps the decision with you.
 
 Attachment bytes never pass through the model: `save_attachments` writes files
 and returns paths. Filenames arriving from email are sanitised — they are
@@ -200,7 +216,8 @@ Worth knowing if you're writing your own IMAP client against iCloud:
 uv run pytest -q
 ```
 
-44 offline tests — no network, no credentials.
+49 offline tests — no network, no credentials. CI runs them on Linux,
+macOS and Windows against Python 3.11 to 3.13.
 
 ```
 src/icloud_mcp/
@@ -215,6 +232,8 @@ src/icloud_mcp/
   drafts.py        APPEND to Drafts
   flags.py         \Seen, \Flagged, \Answered
   move.py          COPY + EXPUNGE with the anti-purge guard
+  mailboxes.py     create, rename, delete (empty only)
+  organize.py      rule-based filing
   server.py        tools, resources, prompts
   setup_wizard.py  interactive configuration
   cli.py           terminal checks

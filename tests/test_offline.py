@@ -157,12 +157,19 @@ async def test_every_tool_is_registered() -> None:
         "save_draft",
         "set_flag",
         "move_emails",
+        "create_mailbox",
+        "rename_mailbox",
+        "delete_mailbox",
+        "auto_organize",
     }
-    # Aucun outil de suppression ne doit exister : rien ne detruit de courrier.
-    forbidden = ("delete", "purge", "expunge")
-    assert not [t.name for t in tools if any(word in t.name for word in forbidden)]
-
     by_name = {tool.name: tool for tool in tools}
+
+    # Aucun outil ne detruit de courrier. delete_mailbox est l'exception
+    # apparente : il ne supprime qu'un dossier VIDE, et sa description le dit.
+    destructive = ("delete_email", "delete_message", "purge", "expunge", "empty")
+    assert not [name for name in by_name if any(w in name for w in destructive)]
+    assert "vide" in (by_name["delete_mailbox"].description or "").lower()
+
     assert "irreversible" in (by_name["send_email"].description or "").lower()
     # move_emails doit simuler par defaut.
     move_schema = by_name["move_emails"].parameters
@@ -337,3 +344,44 @@ def test_attachment_must_exist(tmp_path) -> None:
             body_text="y",
             attachments=[tmp_path / "absent.pdf"],
         )
+
+
+def test_organize_rule_without_criteria_is_refused() -> None:
+    """Une regle sans critere viderait le dossier source."""
+    from icloud_mcp.organize import OrganizeRule, organize
+
+    with pytest.raises(ValueError, match="sans aucun critere"):
+        organize(None, [OrganizeRule(folder="Archive")], "INBOX", limit_per_rule=10)
+
+
+def test_organize_refuses_same_source_and_target() -> None:
+    from icloud_mcp.organize import OrganizeRule, organize
+
+    with pytest.raises(ValueError, match="identiques"):
+        organize(
+            None,
+            [OrganizeRule(folder="INBOX", sender="a@b.c")],
+            "INBOX",
+            limit_per_rule=10,
+        )
+
+
+def test_organize_needs_at_least_one_rule() -> None:
+    from icloud_mcp.organize import organize
+
+    with pytest.raises(ValueError, match="Aucune regle"):
+        organize(None, [], "INBOX", limit_per_rule=10)
+
+
+def test_organize_rule_label_is_readable() -> None:
+    from icloud_mcp.organize import OrganizeRule
+
+    rule = OrganizeRule(folder="Archive", sender="a@b.c", older_than_days=30)
+    assert "a@b.c" in rule.label() and "30" in rule.label()
+
+
+def test_create_mailbox_rejects_empty_name() -> None:
+    from icloud_mcp.mailboxes import create_mailbox
+
+    with pytest.raises(ValueError, match="vide"):
+        create_mailbox(None, "   ")

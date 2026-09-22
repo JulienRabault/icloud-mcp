@@ -15,8 +15,10 @@ from . import (
     drafts as drafts_module,
     flags as flags_module,
     imap_client,
+    mailboxes as mailboxes_module,
     mime,
     move as move_module,
+    organize as organize_module,
     search as search_module,
     smtp_client,
 )
@@ -29,8 +31,11 @@ from .models import (
     FlagResult,
     Folder,
     FolderStatus,
+    MailboxChangeResult,
     MoveReceipt,
     MultiSearchResult,
+    OrganizeResult,
+    RuleMatch,
     SavedFile,
     SearchResult,
     SendReceipt,
@@ -480,6 +485,114 @@ def save_draft(
         message_id=draft.message_id,
         to=draft.to,
         subject=draft.subject,
+    )
+
+
+@mcp.tool
+def create_mailbox(
+    name: Annotated[str, Field(description="Nom du dossier a creer")],
+) -> MailboxChangeResult:
+    """Cree un dossier. Sans effet s'il existe deja.
+
+    Les noms accentues fonctionnent : l'encodage UTF-7 modifie exige par IMAP
+    est applique automatiquement.
+    """
+    with imap_client.connect(settings()) as conn:
+        change = mailboxes_module.create_mailbox(conn, name)
+    return MailboxChangeResult(action=change.action, folder=change.folder)
+
+
+@mcp.tool
+def rename_mailbox(
+    name: Annotated[str, Field(description="Dossier a renommer")],
+    new_name: Annotated[str, Field(description="Nouveau nom")],
+) -> MailboxChangeResult:
+    """Renomme un dossier. Les messages qu'il contient suivent."""
+    with imap_client.connect(settings()) as conn:
+        change = mailboxes_module.rename_mailbox(conn, name, new_name)
+    return MailboxChangeResult(
+        action=change.action, folder=change.folder, new_name=change.new_name
+    )
+
+
+@mcp.tool
+def delete_mailbox(
+    name: Annotated[str, Field(description="Dossier vide a supprimer")],
+) -> MailboxChangeResult:
+    """Supprime un dossier VIDE.
+
+    L'operation est refusee tant que le dossier contient des messages : aucun
+    outil de ce serveur ne detruit de courrier. Deplacer le contenu ailleurs
+    avec move_emails d'abord, ce qui laisse a l'utilisateur le choix de ce qu'il
+    advient de ses messages.
+    """
+    with imap_client.connect(settings()) as conn:
+        change = mailboxes_module.delete_mailbox(conn, name)
+    return MailboxChangeResult(action=change.action, folder=change.folder)
+
+
+@mcp.tool
+def auto_organize(
+    rules: Annotated[
+        list[dict],
+        Field(
+            description=(
+                "Regles de classement. Chaque entree : folder (obligatoire) plus "
+                "au moins un critere parmi sender, subject, older_than_days"
+            )
+        ),
+    ],
+    source: Annotated[str, Field(description="Dossier a trier")] = "INBOX",
+    dry_run: Annotated[
+        bool, Field(description="true (defaut) : simule sans rien deplacer")
+    ] = True,
+    limit_per_rule: Annotated[
+        int, Field(ge=1, le=200, description="Messages max deplaces par regle")
+    ] = 50,
+) -> OrganizeResult:
+    """Classe les messages d'un dossier selon des regles.
+
+    Exemple de regles :
+      [{"sender": "newsletter@example.com", "folder": "Newsletters"},
+       {"subject": "invoice", "folder": "Archive"},
+       {"older_than_days": 365, "folder": "Archive"}]
+
+    Par defaut dry_run=true : l'outil liste ce qu'il deplacerait sans toucher a
+    la boite. Montrer ce resultat a l'utilisateur et obtenir son accord avant de
+    rappeler avec dry_run=false. Une regle sans aucun critere est refusee, car
+    elle viderait le dossier source.
+    """
+    try:
+        parsed = [
+            organize_module.OrganizeRule(
+                folder=rule["folder"],
+                sender=rule.get("sender"),
+                subject=rule.get("subject"),
+                older_than_days=rule.get("older_than_days"),
+            )
+            for rule in rules
+        ]
+    except KeyError as error:
+        raise ValueError(f"Regle sans champ obligatoire : {error}") from error
+
+    with imap_client.connect(settings()) as conn:
+        outcomes = organize_module.organize(
+            conn, parsed, source, limit_per_rule=limit_per_rule, dry_run=dry_run
+        )
+    return OrganizeResult(
+        source=source,
+        dry_run=dry_run,
+        total_matched=sum(len(item.matched) for item in outcomes),
+        rules=tuple(
+            RuleMatch(
+                folder=item.rule.folder,
+                rule=item.rule.label(),
+                matched=len(item.matched),
+                moved=item.moved,
+                sample=item.matched[:3],
+            )
+            for item in outcomes
+        ),
     )
 
 

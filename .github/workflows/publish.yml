@@ -1,0 +1,47 @@
+name: Publish to PyPI
+
+# Se declenche sur un tag de version : git tag v0.2.0 && git push --tags
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests before publishing
+        run: |
+          uv sync --group dev
+          uv run pytest -q
+
+      - name: Build distributions
+        run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    # Publication par identite de confiance : aucun token a stocker dans le
+    # depot. A configurer une fois sur https://pypi.org/manage/account/publishing/
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1

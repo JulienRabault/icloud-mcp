@@ -10,8 +10,24 @@ dependencies = [
     "pydantic>=2.7",
 ]
 
+keywords = ["mcp", "model-context-protocol", "icloud", "imap", "email", "smtp", "claude", "apple-mail"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Email",
+]
+
+[project.urls]
+Homepage = "https://github.com/JulienRabault/icloud-mcp"
+Issues = "https://github.com/JulienRabault/icloud-mcp/issues"
+
 [project.scripts]
 icloud-mcp = "icloud_mcp.__main__:main"
+icloud-mcp-setup = "icloud_mcp.setup_wizard:main"
 
 [build-system]
 requires = ["hatchling"]

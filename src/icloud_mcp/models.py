@@ -201,3 +201,38 @@ class ThreadMessage(EmailSummary):
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     body_text: str = ""
+
+
+class MailboxChangeResult(BaseModel):
+    """Reponse des outils de gestion de dossiers."""
+
+    model_config = ConfigDict(frozen=True)
+
+    action: str = Field(description="cree, renomme, supprime ou existe_deja")
+    folder: str
+    new_name: str | None = None
+
+
+class RuleMatch(BaseModel):
+    """Ce qu'une regle de classement a trouve."""
+
+    model_config = ConfigDict(frozen=True)
+
+    folder: str
+    rule: str = Field(description="Criteres de la regle, en clair")
+    matched: int
+    moved: bool
+    sample: tuple[EmailSummary, ...] = Field(
+        default=(), description="Quelques messages concernes, pour verification"
+    )
+
+
+class OrganizeResult(BaseModel):
+    """Reponse de auto_organize."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source: str
+    dry_run: bool
+    total_matched: int
+    rules: tuple[RuleMatch, ...] = ()
