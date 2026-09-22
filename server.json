@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.JulienRabault/icloud-mcp",
   "title": "iCloud Mail",
-  "description": "Read, search, draft, send and file iCloud Mail over IMAP and SMTP. Searches every folder, not just the inbox. Read-only by default, no tool destroys mail.",
+  "description": "Read, search, draft, send and file iCloud Mail over IMAP and SMTP. No tool destroys mail.",
   "version": "0.1.0",
   "repository": {
     "url": "https://github.com/JulienRabault/icloud-mcp",
