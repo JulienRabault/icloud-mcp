@@ -3,7 +3,7 @@
   "name": "io.github.JulienRabault/icloud-mcp",
   "title": "iCloud Mail",
   "description": "Read, search, draft, send and file iCloud Mail over IMAP and SMTP. No tool destroys mail.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": {
     "url": "https://github.com/JulienRabault/icloud-mcp",
     "source": "github"
@@ -13,7 +13,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "icloud-mail-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "transport": {
         "type": "stdio"
       },
