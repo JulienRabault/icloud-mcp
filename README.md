@@ -18,7 +18,8 @@ third party. Networking and MIME parsing use only the Python standard library.
   rules; `search_all_folders` finds them where an inbox-only search can't.
 - **Drafts before sends.** `save_draft` puts a message in Drafts for you to
   review. `send_email` exists, but it is separate and explicit.
-- **No delete tool.** Nothing in this server destroys mail.
+- **Nothing destroys mail.** There is no tool that deletes messages, and
+  `delete_mailbox` refuses any folder that still holds some.
 - **Handles real iCloud MIME.** Modified UTF-7 folder names, quoted-printable,
   lying charsets, HTML-only messages, accented server-side search.
 
