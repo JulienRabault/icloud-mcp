@@ -1,5 +1,5 @@
 [project]
-name = "icloud-mcp"
+name = "icloud-mail-mcp"
 version = "0.1.0"
 description = "MCP server for iCloud Mail: read, search and send email over IMAP/SMTP"
 readme = "README.md"

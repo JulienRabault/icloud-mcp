@@ -34,8 +34,8 @@ third party. Networking and MIME parsing use only the Python standard library.
 Once published to PyPI, no clone is needed:
 
 ```bash
-uvx icloud-mcp-setup     # interactive configuration
-uvx icloud-mcp           # run the server
+uvx --from icloud-mail-mcp icloud-mcp-setup     # interactive configuration
+uvx --from icloud-mail-mcp icloud-mcp           # run the server
 ```
 
 From source:
