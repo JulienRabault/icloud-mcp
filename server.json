@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.JulienRabault/icloud-mcp",
+  "title": "iCloud Mail",
+  "description": "Read, search, draft, send and file iCloud Mail over IMAP and SMTP. Searches every folder, not just the inbox. Read-only by default, no tool destroys mail.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/JulienRabault/icloud-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "icloud-mail-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ICLOUD_EMAIL",
+          "description": "Your iCloud address, for example you@icloud.com.",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "ICLOUD_APP_PASSWORD",
+          "description": "An app-specific password generated at account.apple.com. iCloud rejects your main password over IMAP.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "ICLOUD_DISPLAY_NAME",
+          "description": "Name shown in the From header of sent mail. Defaults to the local part of the address.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

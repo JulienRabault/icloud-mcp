@@ -1,6 +1,9 @@
 ## iCloud Mail MCP
 
+<!-- mcp-name: io.github.JulienRabault/icloud-mcp -->
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/icloud-mail-mcp.svg?style=flat-square)](https://pypi.org/project/icloud-mail-mcp/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square)](https://www.python.org)
 [![MCP](https://img.shields.io/badge/MCP-server-orange.svg?style=flat-square)](https://modelcontextprotocol.io)
 
